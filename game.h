@@ -20,21 +20,21 @@ typedef struct {
     int y;
     int r;
     int dy;
-    short int color;
-    bool active;
+    short int color;               // RGB color randomized 
+    bool active;                   // true if fruit is currently on screen
 } Fruit;
 
 typedef struct {
     Basket basket;
-    Fruit fruits[MAX_FRUITS];
-    int score;
-    int lives;
-    int frame_counter;
+    Fruit fruits[MAX_FRUITS];       // arrays of fruits (can or cannot be active)
+    int score;                      // number of fruits caught
+    int lives;                      // decrements when fruit is missed 
+    int frame_counter;              // total frames elapsed used for spawning fruits
     bool running;
 } GameState;
 
-void init_game(GameState *game);
-void update_game(GameState *game);
-void draw_game(GameState *game);
+void init_game(GameState *game);    // sets all variables/parameters to starting value
+void update_game(GameState *game);  // game logic updated 1/60th of a second
+void draw_game(GameState *game);    // render the current frame/state into back buffer 
 
 #endif
