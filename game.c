@@ -1,9 +1,9 @@
-#include <stdlib.h>
 #include <stdbool.h>
 
 #include "game.h"
 #include "graphics.h"
 #include "input.h"
+#include "rng.h"
 
 static void draw_basket(Basket *b);
 static void draw_fruit(Fruit *f);
@@ -79,7 +79,7 @@ static void draw_fruit(Fruit *f)
 
 static void update_basket(GameState *game)
 {
-    int keys = read_keys();
+    int keys = read_movement_keys();
 
     /* Change to active-low if needed */
     if (keys & 0x8) {
@@ -97,10 +97,10 @@ static void spawn_fruit(GameState *game)
     for (int i = 0; i < MAX_FRUITS; i++) {
         if (!game->fruits[i].active) {
             game->fruits[i].active = true;
-            game->fruits[i].r = 4 + (rand() % 3);
-            game->fruits[i].x = 10 + rand() % (SCREEN_WIDTH - 20);
+            game->fruits[i].r = 4 + (game_rand() % 3);
+            game->fruits[i].x = 10 + game_rand() % (SCREEN_WIDTH - 20);
             game->fruits[i].y = -5;
-            game->fruits[i].dy = 1 + (rand() % 3);
+            game->fruits[i].dy = 1 + (game_rand() % 3);
             game->fruits[i].color = random_fruit_color();
             return;
         }
@@ -157,5 +157,5 @@ static int clamp(int v, int lo, int hi)
 static short int random_fruit_color(void)
 {
     short int colors[6] = {RED, GREEN, YELLOW, MAGENTA, CYAN, ORANGE};
-    return colors[rand() % 6];
+    return colors[game_rand() % 6];
 }
