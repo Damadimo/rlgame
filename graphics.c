@@ -4,7 +4,6 @@ volatile int pixel_buffer_start;
 short int Buffer1[240][512];
 short int Buffer2[240][512];
 
-
 void wait_for_vsync(void)
 {
     volatile int *pixel_ctrl_ptr = (int *)PIXEL_BUF_CTRL_BASE;

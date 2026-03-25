@@ -5,6 +5,7 @@
 #include "graphics.h"
 #include "input.h"
 
+// declaration of all helper functions
 static void draw_basket(Basket *b);
 static void draw_fruit(Fruit *f);
 static void spawn_fruit(GameState *game);
@@ -18,13 +19,15 @@ void init_game(GameState *game)
 {
     game->basket.w = BASKET_WIDTH;
     game->basket.h = BASKET_HEIGHT;
-    game->basket.x = (SCREEN_WIDTH - BASKET_WIDTH) / 2;
-    game->basket.y = SCREEN_HEIGHT - 18;
+    game->basket.x = (SCREEN_WIDTH - BASKET_WIDTH) / 2;     // (320-26)/2 = 142
+    game->basket.y = SCREEN_HEIGHT - 18;                    // y = 222 (18 pixels above from bottom)
 
+    // reset all active fruits
     for (int i = 0; i < MAX_FRUITS; i++) {
         game->fruits[i].active = false;
     }
 
+    // reset all GameState variables
     game->score = 0;
     game->lives = 5;
     game->frame_counter = 0;
@@ -33,10 +36,12 @@ void init_game(GameState *game)
 
 void update_game(GameState *game)
 {
+    // increment to next frame
     game->frame_counter++;
 
     update_basket(game);
 
+    // every 25 frames drops a fruit
     if (game->frame_counter % 25 == 0) {
         spawn_fruit(game);
     }
@@ -50,15 +55,20 @@ void update_game(GameState *game)
 
 void draw_game(GameState *game)
 {
+    // gray line right above the bottom by 2px
     draw_rect(0, SCREEN_HEIGHT - 2, SCREEN_WIDTH, 2, GRAY);
 
     draw_basket(&game->basket);
 
+    // draws each fruit (inactive ones get skipped)
     for (int i = 0; i < MAX_FRUITS; i++) {
         draw_fruit(&game->fruits[i]);
     }
 
+    // score bar at top left of the screen
     draw_rect(5, 5, game->score * 6, 6, GREEN);
+
+    // lives bar at the below the score
     draw_rect(5, 15, game->lives * 20, 6, RED);
 }
 
