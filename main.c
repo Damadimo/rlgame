@@ -1,5 +1,6 @@
 #include "graphics.h"
 #include "game.h"
+#include "ai.h"
 
 int main(void)
 {
@@ -11,6 +12,35 @@ int main(void)
 
     while (game.running) {
         clear_screen();
+
+// looks at closest fruit falling, makes decision, executes it
+#if AI_MODE
+        // default settings
+        int closest_x = SCREEN_WIDTH / 2;   
+        int closest_y = 0;                    
+        int found = 0;
+
+        // finds the closest activatge fruit 
+        for (int i = 0; i < MAX_FRUITS; i++) {
+            if (game.fruits[i].active) {
+                if (!found || game.fruits[i].y > closest_y) {
+                    closest_x = game.fruits[i].x;
+                    closest_y = game.fruits[i].y;
+                    found = 1;
+                }
+            }
+        }
+
+        // gets AI decision
+        int action = ai_get_action(closest_x, closest_y, game.basket.x);
+
+        // executes the action on the basket (1 stay) 
+        if (action == 0) {
+            game.basket.x -= BASKET_SPEED;  // move left
+        } else if (action == 2) {
+            game.basket.x += BASKET_SPEED;  // move right
+        }
+#endif
         update_game(&game);
         draw_game(&game);
 

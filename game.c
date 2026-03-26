@@ -89,6 +89,7 @@ static void draw_fruit(Fruit *f)
 
 static void update_basket(GameState *game)
 {
+#if !AI_MODE    // skip overs this function if in AI mode
     int keys = read_keys();
 
     /* Change to active-low if needed */
@@ -98,6 +99,7 @@ static void update_basket(GameState *game)
     if (keys & 0x4) {
         game->basket.x += BASKET_SPEED;
     }
+#endif
 
     game->basket.x = clamp(game->basket.x, 0, SCREEN_WIDTH - game->basket.w);
 }

@@ -7,6 +7,7 @@
 #define BASKET_WIDTH  36
 #define BASKET_HEIGHT 10
 #define BASKET_SPEED  3
+#define AI_MODE 1           // manual toggle (1 AI, 0 human)
 
 typedef struct {
     int x;
