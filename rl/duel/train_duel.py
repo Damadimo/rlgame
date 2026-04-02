@@ -12,8 +12,9 @@ from pathlib import Path
 import torch.nn as nn
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import EvalCallback
-from stable_baselines3.common.utils import FloatSchedule, LinearSchedule
 from stable_baselines3.common.vec_env import DummyVecEnv, VecEnv
+
+from stable_baselines3.common.utils import FloatSchedule, LinearSchedule
 
 from rl.duel.duel_env import DUEL_INITIAL_LIVES, DUEL_SPAWN_EVERY, DuelCatchRightEnv
 from rl.shared.export_policy import export_policy_int8
@@ -43,7 +44,7 @@ def _make_env(args) -> DuelCatchRightEnv:
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--timesteps", type=int, default=1_000_000)
+    ap.add_argument("--timesteps", type=int, default=500_000)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument(
         "--ent-coef",

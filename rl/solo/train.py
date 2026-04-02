@@ -13,8 +13,12 @@ from pathlib import Path
 import torch.nn as nn
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import EvalCallback
-from stable_baselines3.common.utils import FloatSchedule, LinearSchedule
 from stable_baselines3.common.vec_env import DummyVecEnv, VecEnv
+
+try:
+    from stable_baselines3.common.utils import FloatSchedule, LinearSchedule
+except ImportError:
+    from rl.shared.sb3_schedules import FloatSchedule, LinearSchedule
 
 from rl.shared.export_policy import export_policy_int8
 from rl.solo.catch_env import EASY_TRAIN_PRESET, CatchGameEnv
