@@ -7,21 +7,22 @@ import argparse
 import os
 import statistics
 import sys
+from pathlib import Path
 
 from stable_baselines3 import PPO
 
-from catch_env import EASY_TRAIN_PRESET, CatchGameEnv
+from rl.solo.catch_env import EASY_TRAIN_PRESET, CatchGameEnv
 
 
 def main() -> int:
-    root = os.path.dirname(os.path.abspath(__file__))
-    default_model = os.path.join(root, "models", "ppo_catch")
+    rl_root = Path(__file__).resolve().parent.parent
+    default_model = str(rl_root / "models" / "ppo_catch")
 
     ap = argparse.ArgumentParser(description="Evaluate trained CatchGame PPO")
     ap.add_argument("--model", default=default_model, help="Model path (.zip optional)")
     ap.add_argument("--episodes", type=int, default=100)
     ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--easy", action="store_true", help="Match rl/train.py --easy env")
+    ap.add_argument("--easy", action="store_true", help="Match rl.solo.train --easy env")
     ap.add_argument("--initial-lives", type=int, default=10)
     ap.add_argument("--spawn-every", type=int, default=25)
     ap.add_argument("--basket-width", type=int, default=36)

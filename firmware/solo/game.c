@@ -26,7 +26,7 @@ void init_game(GameState *game)
     }
 
     game->score = 0;
-    game->lives = 5;
+    game->lives = INITIAL_LIVES;
     game->frame_counter = 0;
     game->running = true;
 }
@@ -100,7 +100,7 @@ static void spawn_fruit(GameState *game)
             game->fruits[i].r = 4 + (game_rand() % 3);
             game->fruits[i].x = 10 + game_rand() % (SCREEN_WIDTH - 20);
             game->fruits[i].y = -5;
-            game->fruits[i].dy = 1 + (game_rand() % 3);
+            game->fruits[i].dy = FRUIT_DY;
             game->fruits[i].color = random_fruit_color();
             return;
         }
@@ -114,7 +114,9 @@ static void update_fruits(GameState *game)
 
         if (!f->active) continue;
 
-        f->y += f->dy;
+        if (game->frame_counter % FRUIT_MOVE_EVERY == 0) {
+            f->y += f->dy;
+        }
 
         if (fruit_hits_basket(f, &game->basket)) {
             f->active = false;

@@ -26,3 +26,13 @@ int read_movement_keys(void)
     }
     return read_keys();
 }
+
+int read_human_movement_keys(void)
+{
+    return read_keys();
+}
+
+int input_get_agent_keys(void)
+{
+    return agent_keys;
+}

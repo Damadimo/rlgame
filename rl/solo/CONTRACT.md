@@ -1,8 +1,8 @@
 # RL contract (training and RV32 deployment)
 
-This document locks the interface between the Gymnasium environment, training, and embedded inference so behavior matches [game.c](../game.c).
+This document locks the interface between the Gymnasium environment, training, and embedded inference so behavior matches [game.c](../../firmware/solo/game.c).
 
-## Constants (from [game.h](../game.h) and [graphics.h](../graphics.h))
+## Constants (from [game.h](../../firmware/solo/game.h) and [graphics.h](../../firmware/shared/graphics.h))
 
 | Symbol | Value |
 |--------|-------|
@@ -21,7 +21,7 @@ This document locks the interface between the Gymnasium environment, training, a
 
 Discrete **3** actions (Gymnasium `Discrete(3)`):
 
-| Action ID | Meaning | Key bitmask (same as [game.c](game.c) `update_basket`) |
+| Action ID | Meaning | Key bitmask (same as [game.c](../../firmware/solo/game.c) `update_basket`) |
 |-----------|---------|-------------------------|
 | 0 | No move | `0` |
 | 1 | Left | `0x8` |
@@ -31,7 +31,7 @@ Discrete **3** actions (Gymnasium `Discrete(3)`):
 
 ## Random number generator
 
-Spawning uses the same generator as [rng.c](../rng.c): 32-bit state, `next = next * 1103515245 + 12345`, return `(next >> 16) & 0x7fff` (classic `rand()`-style). **Before** each episode, call `game_rng_seed(seed)` (C) or set Python state to match.
+Spawning uses the same generator as [rng.c](../../firmware/shared/rng.c): 32-bit state, `next = next * 1103515245 + 12345`, return `(next >> 16) & 0x7fff` (classic `rand()`-style). **Before** each episode, call `game_rng_seed(seed)` (C) or set Python state to match.
 
 ## Observation vector
 
@@ -49,7 +49,7 @@ Length **26** (`1 + 5 * 5`), `float32`, order:
      - `dy_norm`: `dy / 3.0` (`dy` is always `FRUIT_DY` = 1)
      - `r_norm`: `r / 8.0` (typical r is 4–6)
 
-Normalization matches [policy.c](../policy.c) / training preprocessing. [observation.c](../observation.c) and [catch_env.py](catch_env.py) must use the **same** sort rule.
+Normalization matches [policy.c](../../firmware/solo/policy.c) / training preprocessing. [observation.c](../../firmware/solo/observation.c) and [catch_env.py](catch_env.py) must use the **same** sort rule.
 
 ## Rewards
 
@@ -65,9 +65,9 @@ Inference produces logits or Q-values for 3 actions; take `argmax`. Map to key b
 
 ## Fixed-point inference
 
-Weights are exported as **int8** with per-layer scale; activations use **int32** accumulators and **ReLU** after hidden layers. See [policy.c](../policy.c). `GAME_OBS_DIM` in [observation.h](../observation.h) must equal `POLICY_OBS_DIM` from generated [policy_weights.h](../policy_weights.h) (both are **26** with the current layout).
+Weights are exported as **int8** with per-layer scale; activations use **int32** accumulators and **ReLU** after hidden layers. See [policy.c](../../firmware/solo/policy.c). `GAME_OBS_DIM` in [observation.h](../../firmware/solo/observation.h) must equal `POLICY_OBS_DIM` from generated [policy_weights.h](../../weights/policy_weights.h) (both are **26** with the current layout).
 
 ## Firmware entry points
 
-- Human play: [main.c](../main.c) with `INPUT_MODE_HUMAN` and `read_movement_keys()` reading keys.
-- Agent on device: [main_agent.c](../main_agent.c) — `INPUT_MODE_AGENT`, `build_game_observation` → `policy_select_action` → `input_set_agent_keys` before `update_game`.
+- Human play: [main.c](../../firmware/solo/main.c) with `INPUT_MODE_HUMAN` and `read_movement_keys()` reading keys.
+- Agent on device: [main_agent.c](../../firmware/solo/main_agent.c) — `INPUT_MODE_AGENT`, `build_game_observation` → `policy_select_action` → `input_set_agent_keys` before `update_game`.

@@ -8,7 +8,7 @@ import sys
 
 
 def _find_binary():
-    root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
     path = os.path.join(root, "tests", "policy_smoke")
     if os.path.isfile(path) and os.access(path, os.X_OK):
         return path
@@ -18,7 +18,7 @@ def _find_binary():
 def main() -> int:
     bin_path = _find_binary()
     if bin_path is None:
-        print("build tests/policy_smoke first: make policy_smoke", file=sys.stderr)
+        print("build tests/policy_smoke from repo root: make policy_smoke", file=sys.stderr)
         return 1
     out = subprocess.check_output([bin_path], text=True)
     parts = out.strip().split()

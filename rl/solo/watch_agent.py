@@ -6,16 +6,17 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+from pathlib import Path
 
 import pygame
 from stable_baselines3 import PPO
 
-from catch_env import EASY_TRAIN_PRESET, CatchGameEnv
+from rl.solo.catch_env import EASY_TRAIN_PRESET, CatchGameEnv
 
 
 def main() -> int:
-    root = os.path.dirname(os.path.abspath(__file__))
-    default_model = os.path.join(root, "models", "ppo_catch")
+    rl_root = Path(__file__).resolve().parent.parent
+    default_model = str(rl_root / "models" / "ppo_catch")
 
     ap = argparse.ArgumentParser(description="Watch trained agent play CatchGame")
     ap.add_argument(
@@ -40,7 +41,7 @@ def main() -> int:
     ap.add_argument(
         "--easy",
         action="store_true",
-        help="Use same EASY_TRAIN_PRESET as rl/train.py --easy (must match how the model was trained)",
+        help="Use same EASY_TRAIN_PRESET as rl.solo.train --easy (must match how the model was trained)",
     )
     ap.add_argument("--initial-lives", type=int, default=10)
     ap.add_argument("--spawn-every", type=int, default=25)
@@ -58,7 +59,7 @@ def main() -> int:
         model_path = model_path + ".zip"
     if not os.path.isfile(model_path):
         print(f"Model not found: {args.model}", file=sys.stderr)
-        print("Train first: python rl/train.py", file=sys.stderr)
+        print("Train first: python -m rl.solo.train", file=sys.stderr)
         return 1
 
     if args.easy:

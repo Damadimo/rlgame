@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import os
+from pathlib import Path
 
 import torch.nn as nn
 from stable_baselines3 import PPO
@@ -15,8 +16,16 @@ from stable_baselines3.common.callbacks import EvalCallback
 from stable_baselines3.common.utils import FloatSchedule, LinearSchedule
 from stable_baselines3.common.vec_env import DummyVecEnv, VecEnv
 
-from catch_env import EASY_TRAIN_PRESET, CatchGameEnv
-from export_policy import export_policy_int8
+from rl.shared.export_policy import export_policy_int8
+from rl.solo.catch_env import EASY_TRAIN_PRESET, CatchGameEnv
+
+
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parents[2]
+
+
+def _rl_root() -> Path:
+    return Path(__file__).resolve().parents[1]
 
 
 def _make_env(args) -> CatchGameEnv:
@@ -71,11 +80,11 @@ def main():
     )
     ap.add_argument(
         "--out-model",
-        default=os.path.join(os.path.dirname(__file__), "models", "ppo_catch"),
+        default=str(_rl_root() / "models" / "ppo_catch"),
     )
     ap.add_argument(
         "--out-header",
-        default=os.path.join(os.path.dirname(__file__), "..", "policy_weights.h"),
+        default=str(_repo_root() / "weights" / "policy_weights.h"),
     )
     ap.add_argument(
         "--easy",

@@ -9,7 +9,7 @@ import sys
 import numpy as np
 import pytest
 
-from catch_env import CatchGameEnv, action_to_key_bits
+from rl.solo.catch_env import CatchGameEnv, action_to_key_bits
 
 
 def test_python_deterministic():

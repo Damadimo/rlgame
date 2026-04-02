@@ -3,7 +3,10 @@
 
 #include <stdbool.h>
 
-#define MAX_FRUITS 10
+#define MAX_FRUITS 5
+#define FRUIT_DY 1
+#define FRUIT_MOVE_EVERY 2
+#define INITIAL_LIVES 10
 #define BASKET_WIDTH  36
 #define BASKET_HEIGHT 10
 #define BASKET_SPEED  3
