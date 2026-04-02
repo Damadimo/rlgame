@@ -1,15 +1,18 @@
 # DE1-SoC / RISC-V build (Intel Quartus + riscv32-unknown-elf-gcc on Windows).
 #
-# --- Unified (default): menu — AI solo | split human vs AI | human solo; post-game menu/again ---
-#   firmware/main_game.c links solo + duel policies; duel weights use DUEL_POLICY_* in
-#   weights/policy_weights_duel.h (see rl/duel/DUEL.md).
+# --- Unified (default): menu — AI solo | split | human solo | AI solo (alt weights); post-game menu/again ---
+#   firmware/main_game.c links solo + policy_alt + duel; default solo policy is int8
+#   (weights/policy_weights.h -> policy.c). Alt is float MLP in weights/policy_weights_alt.h
+#   (policy_alt.c; 3-D input packed from full obs in policy_alt_select_action_from_game_obs).
+#   Duel uses weights/policy_weights_duel.h -> policy_duel.c.
 #
 # --- Solo-only (AI full screen) ---
 #   MAIN := firmware/solo/main_agent.c  TARGET := basket_game_ai
-#   SRCS := solo objects only (no duel_game, observation_duel, policy_duel).
+#   SRCS := graphics input rng game observation policy (no duel_*, no policy_alt).
 #
 # --- Duel-only (split human vs AI) ---
-#   MAIN := firmware/duel/main_duel.c  SRCS without solo game/observation/policy.
+#   MAIN := firmware/duel/main_duel.c
+#   SRCS := graphics input rng duel_game observation_duel policy_duel (no solo game/observation/policy/policy_alt).
 #
 # Host tests (parity, policy_smoke) use the root Makefile, not this file.
 
@@ -18,11 +21,13 @@ INSTALL := C:/intelFPGA/QUARTUS_Lite_V23.1
 MAIN    := firmware/main_game.c
 TARGET  := basket_game
 INCLUDES := -Ifirmware/shared -Ifirmware/solo -Ifirmware/duel -Iweights
-HDRS    := firmware/shared/graphics.h firmware/solo/game.h firmware/duel/duel_game.h firmware/shared/input.h \
-           firmware/shared/rng.h firmware/solo/observation.h firmware/solo/policy.h weights/policy_weights.h \
-           firmware/duel/observation_duel.h firmware/duel/policy_duel.h weights/policy_weights_duel.h
+HDRS    := firmware/shared/graphics.h firmware/shared/input.h firmware/shared/rng.h \
+           firmware/solo/game.h firmware/solo/observation.h firmware/solo/policy.h firmware/solo/policy_alt.h \
+           firmware/duel/duel_game.h firmware/duel/observation_duel.h firmware/duel/policy_duel.h \
+           weights/policy_weights.h weights/policy_weights_alt.h weights/policy_weights_duel.h
 SRCS    := firmware/main_game.c firmware/shared/graphics.c firmware/solo/game.c firmware/duel/duel_game.c \
            firmware/shared/input.c firmware/shared/rng.c firmware/solo/observation.c firmware/solo/policy.c \
+           firmware/solo/policy_alt.c \
            firmware/duel/observation_duel.c firmware/duel/policy_duel.c
 
 SHELL   := cmd.exe
@@ -58,8 +63,8 @@ OD  := $(COMPILER)/riscv32-unknown-elf-objdump.exe
 NM  := $(COMPILER)/riscv32-unknown-elf-nm.exe
 RM  := /usr/bin/rm -f
 
-# Flags
-USERCCFLAGS := -g -O1 -ffunction-sections -fverbose-asm -fno-inline -gdwarf-2
+# Flags (match host Makefile: C11 + same include roots)
+USERCCFLAGS := -std=c11 -g -O1 -ffunction-sections -fverbose-asm -fno-inline -gdwarf-2
 USERLDFLAGS := -Wl,--defsym=__stack_pointer$$=0x4000000 -Wl,--defsym -Wl,JTAG_UART_BASE=0xff201000 -lm
 ARCHCCFLAGS := -march=rv32im_zicsr -mabi=ilp32
 ARCHLDFLAGS := -march=rv32im_zicsr -mabi=ilp32
@@ -87,6 +92,8 @@ QP_PROGRAMMER   := quartus_pgm.exe
 SYS_FLAG_CABLE_Lite     := -c "USB-Blaster [USB-0]"
 # DE1-SoC
 SYS_FLAG_CABLE_SoC      := -c "DE-SoC [USB-1]"
+# quartus_pgm cable flag for DETECT_DEVICES (default: DE1-SoC; override when using DE10-Lite flow)
+SYS_FLAG_CABLE          := $(SYS_FLAG_CABLE_SoC)
 
 # DE10-Lite
 JTAG_INDEX_Lite := 1

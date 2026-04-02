@@ -9,7 +9,7 @@ Two **firmware + training** tracks share VGA / input / RNG code but use differen
 | **`firmware/shared/`** | `graphics`, `input`, `rng` (both modes) |
 | **`firmware/solo/`** | Full-screen catch: `game`, `observation`, `policy`, `main.c`, `main_agent.c` |
 | **`firmware/duel/`** | Split-screen 160+160: `duel_game`, `observation_duel`, `policy_duel`, `main_duel.c` |
-| **`weights/`** | Exported int8 headers: `policy_weights.h` (solo), `policy_weights_duel.h` (duel) |
+| **`weights/`** | `policy_weights.h` / `policy_weights_duel.h` (int8 export); `policy_weights_alt.h` (float 3→8→3 alt net, hand-edited or replaced) |
 | **`rl/shared/`** | `export_policy.py`, `validate_policy_match.py` |
 | **`rl/solo/`** | Full-screen env + `train.py`, `eval_model.py`, `watch_agent.py`, `CONTRACT.md`, `TRAINING.md` |
 | **`rl/duel/`** | Split-screen env + `train_duel.py`, `DUEL.md` |
@@ -24,6 +24,8 @@ python -m rl.solo.train
 python -m rl.solo.eval_model --episodes 200
 python -m rl.solo.watch_agent
 ```
+
+Unified menu **`firmware/main_game.c`**: **KEY3** runs full-screen AI using **`weights/policy_weights_alt.h`**: a **float** MLP (`POLICY_ALT_F32_W1` / `B1` / `W2` / `B2`). The game still builds the usual 26-D vector; **`policy_alt_select_action_from_game_obs`** feeds **three** values in training order: **closest fruit x**, **closest fruit y**, **basket x** (`obs[2]`, `obs[3]`, `obs[0]` — first sorted fruit slot). Adjust packing in **`firmware/solo/policy_alt.c`** if needed. The default solo policy remains the int8 export in **`policy_weights.h`**.
 
 Docs: **`rl/solo/CONTRACT.md`**, **`rl/solo/TRAINING.md`**.  
 DE1: **`Makefile.de1`** default `SRCS` target solo AI (`main_agent.c`).
