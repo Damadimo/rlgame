@@ -9,13 +9,29 @@ from gymnasium import spaces
 # Mirrors game.h / graphics.h
 SCREEN_WIDTH = 320
 SCREEN_HEIGHT = 240
-MAX_FRUITS = 10
+MAX_FRUITS = 5
+FRUIT_DY = 1
+FRUIT_MOVE_EVERY = 2
+INITIAL_LIVES = 10
 BASKET_WIDTH = 36
 BASKET_HEIGHT = 10
 BASKET_SPEED = 3
 SPAWN_EVERY = 25
 
 OBS_DIM = 1 + MAX_FRUITS * 5
+
+# Optional curriculum preset for Python-only training (does not match game.c / CONTRACT.md).
+EASY_TRAIN_PRESET = {
+    "initial_lives": 20,
+    "spawn_every": 40,
+    "basket_width": 44,
+    "basket_speed": BASKET_SPEED,
+    "fruit_dy_min": FRUIT_DY,
+    "fruit_dy_max": FRUIT_DY,
+    "fruit_move_every": FRUIT_MOVE_EVERY,
+    "fruit_r_min": 5,
+    "fruit_r_max": 7,
+}
 
 
 def action_to_key_bits(action: int) -> int:
@@ -42,23 +58,33 @@ def build_observation(
     *,
     screen_w: int = SCREEN_WIDTH,
     screen_h: int = SCREEN_HEIGHT,
+    basket_w: int = BASKET_WIDTH,
+    dy_norm_div: float = 3.0,
+    r_norm_div: float = 8.0,
 ) -> np.ndarray:
+    """Fruit slots are sorted by urgency: larger ``y`` first (lower on screen), then ``x``, then slot index."""
     obs = np.zeros(OBS_DIM, dtype=np.float32)
-    max_x = screen_w - BASKET_WIDTH
+    max_x = screen_w - basket_w
     obs[0] = basket_x / float(max_x) if max_x > 0 else 0.0
     base = 1
-    for i in range(MAX_FRUITS):
-        f = fruits[i]
-        off = base + i * 5
+    dy_d = float(dy_norm_div) if dy_norm_div > 0 else 1.0
+    r_d = float(r_norm_div) if r_norm_div > 0 else 1.0
+
+    actives: list[tuple[int, int, int, dict]] = []
+    for i, f in enumerate(fruits):
         if f["active"]:
-            obs[off + 0] = 1.0
-            obs[off + 1] = f["x"] / float(screen_w)
-            yn = (f["y"] + 32) / float(screen_h + 64)
-            obs[off + 2] = float(np.clip(yn, 0.0, 1.0))
-            obs[off + 3] = f["dy"] / 3.0
-            obs[off + 4] = f["r"] / 8.0
-        else:
-            obs[off + 0] = 0.0
+            actives.append((f["y"], f["x"], i, f))
+    actives.sort(key=lambda t: (-t[0], t[1], t[2]))
+
+    for slot, (_y, _x, _i, f) in enumerate(actives[:MAX_FRUITS]):
+        off = base + slot * 5
+        obs[off + 0] = 1.0
+        obs[off + 1] = f["x"] / float(screen_w)
+        yn = (f["y"] + 32) / float(screen_h + 64)
+        obs[off + 2] = float(np.clip(yn, 0.0, 1.0))
+        obs[off + 3] = f["dy"] / dy_d
+        obs[off + 4] = f["r"] / r_d
+
     return obs
 
 
@@ -95,20 +121,64 @@ FRUIT_PALETTE = (
 class CatchGameEnv(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"]}
 
-    def __init__(self, render_mode: str | None = None, render_scale: int = 2):
+    def __init__(
+        self,
+        render_mode: str | None = None,
+        render_scale: int = 2,
+        *,
+        initial_lives: int = INITIAL_LIVES,
+        spawn_every: int = SPAWN_EVERY,
+        basket_width: int = BASKET_WIDTH,
+        basket_height: int = BASKET_HEIGHT,
+        basket_speed: int = BASKET_SPEED,
+        fruit_dy_min: int = FRUIT_DY,
+        fruit_dy_max: int = FRUIT_DY,
+        fruit_move_every: int = FRUIT_MOVE_EVERY,
+        fruit_r_min: int = 4,
+        fruit_r_max: int = 6,
+    ):
         super().__init__()
+        if not (1 <= fruit_dy_min <= fruit_dy_max):
+            raise ValueError("fruit_dy_min and fruit_dy_max must satisfy 1 <= min <= max")
+        if fruit_dy_min != fruit_dy_max:
+            raise ValueError("fruit_dy_min must equal fruit_dy_max (constant fall speed; matches game.c FRUIT_DY)")
+        if not (1 <= fruit_r_min <= fruit_r_max):
+            raise ValueError("fruit_r_min and fruit_r_max must satisfy 1 <= min <= max")
+        if not (1 <= basket_width < SCREEN_WIDTH):
+            raise ValueError("basket_width must be in [1, SCREEN_WIDTH)")
+        if initial_lives < 1:
+            raise ValueError("initial_lives must be >= 1")
+        if spawn_every < 1:
+            raise ValueError("spawn_every must be >= 1")
+        if fruit_move_every < 1:
+            raise ValueError("fruit_move_every must be >= 1")
+
         self.render_mode = render_mode
         self.render_scale = max(1, int(render_scale))
         self.action_space = spaces.Discrete(3)
         self.observation_space = spaces.Box(
             low=0.0, high=1.0, shape=(OBS_DIM,), dtype=np.float32
         )
+        self._initial_lives = int(initial_lives)
+        self._spawn_every = int(spawn_every)
+        self._basket_width = int(basket_width)
+        self._basket_height = int(basket_height)
+        self._basket_speed = int(basket_speed)
+        self._fruit_dy_min = int(fruit_dy_min)
+        self._fruit_dy_max = int(fruit_dy_max)
+        self._fruit_r_min = int(fruit_r_min)
+        self._fruit_r_max = int(fruit_r_max)
+        self._fruit_move_every = int(fruit_move_every)
+        # Keep dy/r scales at least as large as the C contract so easy mode stays in [0, 1].
+        self._obs_dy_div = float(max(3, self._fruit_dy_max))
+        self._obs_r_div = float(max(8, self._fruit_r_max))
+
         self._rng_state = 1
         self._basket: dict = {}
         self._fruits: list[dict] = []
         self.frame_counter = 0
         self.score = 0
-        self.lives = 5
+        self.lives = self._initial_lives
         self.running = True
         # Lazy pygame (only if rendering)
         self._pg_screen = None
@@ -130,10 +200,10 @@ class CatchGameEnv(gym.Env):
             seed = 1
         self._rng_state = int(seed) & 0xFFFFFFFF
         self._basket = {
-            "x": (SCREEN_WIDTH - BASKET_WIDTH) // 2,
+            "x": (SCREEN_WIDTH - self._basket_width) // 2,
             "y": SCREEN_HEIGHT - 18,
-            "w": BASKET_WIDTH,
-            "h": BASKET_HEIGHT,
+            "w": self._basket_width,
+            "h": self._basket_height,
         }
         self._fruits = [
             {
@@ -147,27 +217,28 @@ class CatchGameEnv(gym.Env):
         ]
         self.frame_counter = 0
         self.score = 0
-        self.lives = 5
+        self.lives = self._initial_lives
         self.running = True
         obs = self._get_obs()
         return obs, {}
 
     def _spawn_fruit(self) -> None:
+        r_span = self._fruit_r_max - self._fruit_r_min + 1
         for i in range(MAX_FRUITS):
             if not self._fruits[i]["active"]:
                 self._fruits[i]["active"] = True
-                self._fruits[i]["r"] = 4 + (self._rand() % 3)
+                self._fruits[i]["r"] = self._fruit_r_min + (self._rand() % r_span)
                 self._fruits[i]["x"] = 10 + self._rand() % (SCREEN_WIDTH - 20)
                 self._fruits[i]["y"] = -5
-                self._fruits[i]["dy"] = 1 + (self._rand() % 3)
+                self._fruits[i]["dy"] = self._fruit_dy_min
                 self._fruits[i]["color"] = FRUIT_PALETTE[self._rand() % len(FRUIT_PALETTE)]
                 return
 
     def _update_basket(self, keys: int) -> None:
         if keys & 0x8:
-            self._basket["x"] -= BASKET_SPEED
+            self._basket["x"] -= self._basket_speed
         if keys & 0x4:
-            self._basket["x"] += BASKET_SPEED
+            self._basket["x"] += self._basket_speed
         max_x = SCREEN_WIDTH - self._basket["w"]
         self._basket["x"] = _clamp(self._basket["x"], 0, max_x)
 
@@ -179,7 +250,8 @@ class CatchGameEnv(gym.Env):
             f = self._fruits[i]
             if not f["active"]:
                 continue
-            f["y"] += f["dy"]
+            if self.frame_counter % self._fruit_move_every == 0:
+                f["y"] += f["dy"]
             if fruit_hits_basket(f, self._basket):
                 f["active"] = False
                 self.score += 1
@@ -191,13 +263,19 @@ class CatchGameEnv(gym.Env):
         return catches, misses
 
     def _get_obs(self) -> np.ndarray:
-        return build_observation(self._basket["x"], self._fruits)
+        return build_observation(
+            self._basket["x"],
+            self._fruits,
+            basket_w=self._basket["w"],
+            dy_norm_div=self._obs_dy_div,
+            r_norm_div=self._obs_r_div,
+        )
 
     def step(self, action: int):
         keys = action_to_key_bits(int(action))
         self.frame_counter += 1
         self._update_basket(keys)
-        if self.frame_counter % SPAWN_EVERY == 0:
+        if self.frame_counter % self._spawn_every == 0:
             self._spawn_fruit()
         catches, misses = self._update_fruits()
         reward = float(catches) - float(misses)

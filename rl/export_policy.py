@@ -79,7 +79,12 @@ def export_policy_int8(model, header_path: str) -> None:
         f.write("\n#endif\n")
 
     vec = model.get_env()
-    obs = vec.observation_space.sample().astype(np.float32)
+    if vec is None:
+        obs = np.zeros(obs_dim, dtype=np.float32)
+    else:
+        obs = vec.observation_space.sample().astype(np.float32)
+        if obs.ndim > 1:
+            obs = obs[0].astype(np.float32)
 
     def forward_fp(o: np.ndarray) -> np.ndarray:
         z1 = o @ w1.T + b1

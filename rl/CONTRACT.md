@@ -8,7 +8,10 @@ This document locks the interface between the Gymnasium environment, training, a
 |--------|-------|
 | `SCREEN_WIDTH` | 320 |
 | `SCREEN_HEIGHT` | 240 |
-| `MAX_FRUITS` | 10 |
+| `MAX_FRUITS` | 5 |
+| `FRUIT_DY` | 1 (nominal step added to `y` when a fruit moves) |
+| `FRUIT_MOVE_EVERY` | 2 — apply `y += dy` only when `frame_counter % N == 0` (slower effective fall) |
+| `INITIAL_LIVES` | 10 |
 | `BASKET_WIDTH` | 36 |
 | `BASKET_HEIGHT` | 10 |
 | `BASKET_SPEED` | 3 |
@@ -24,7 +27,7 @@ Discrete **3** actions (Gymnasium `Discrete(3)`):
 | 1 | Left | `0x8` |
 | 2 | Right | `0x4` |
 
-`update_game` order per step: `frame_counter++` → basket movement from keys → spawn if `frame_counter % 25 == 0` → move fruits and resolve collisions.
+`update_game` order per step: `frame_counter++` → basket movement from keys → spawn if `frame_counter % 25 == 0` → for each active fruit, if `frame_counter % FRUIT_MOVE_EVERY == 0` then `y += dy` → collision / miss resolution.
 
 ## Random number generator
 
@@ -32,17 +35,21 @@ Spawning uses the same generator as [rng.c](../rng.c): 32-bit state, `next = nex
 
 ## Observation vector
 
-Length **51**, `float32`, order:
+Length **26** (`1 + 5 * 5`), `float32`, order:
 
 1. **Basket** (1): `basket.x / (SCREEN_WIDTH - BASKET_WIDTH)` in \([0, 1]\).
-2. For each fruit slot `i = 0..9` (5 each):
-   - `active`: `1.0` if `fruits[i].active` else `0.0`
-   - `x_norm`: `fruits[i].x / SCREEN_WIDTH` (0 if inactive)
-   - `y_norm`: `(fruits[i].y + 32) / (SCREEN_HEIGHT + 64)` clipped to \([0, 1]\) (inactive → `0`)
-   - `dy_norm`: `fruits[i].dy / 3.0` (inactive → `0`; max dy is 3)
-   - `r_norm`: `fruits[i].r / 8.0` (inactive → `0`; typical r is 4–6)
+2. **Fruit slots `0..4` are sorted by urgency**, not by internal array index:
+   - Take all active fruits from `game->fruits[]`.
+   - Sort by **descending** `y` (larger `y` = lower on screen = more urgent), then ascending `x`, then ascending original slot index (deterministic tie-break).
+   - Fill up to **5** slots with that order; remaining slots are all zeros (inactive).
+   - For each filled slot, the 5 floats are:
+     - `active`: `1.0`
+     - `x_norm`: `x / SCREEN_WIDTH`
+     - `y_norm`: `(y + 32) / (SCREEN_HEIGHT + 64)` clipped to \([0, 1]\)
+     - `dy_norm`: `dy / 3.0` (`dy` is always `FRUIT_DY` = 1)
+     - `r_norm`: `r / 8.0` (typical r is 4–6)
 
-Normalization matches [policy.c](../policy.c) / training preprocessing.
+Normalization matches [policy.c](../policy.c) / training preprocessing. [observation.c](../observation.c) and [catch_env.py](catch_env.py) must use the **same** sort rule.
 
 ## Rewards
 
@@ -50,7 +57,7 @@ Normalization matches [policy.c](../policy.c) / training preprocessing.
 - **-1.0** when a fruit is missed (`lives` decreases).
 - **0.0** otherwise.
 
-Episode terminates when `lives <= 0` (`running == false`).
+Episode terminates when `lives <= 0` (`running == false`). Starting lives = `INITIAL_LIVES` (10).
 
 ## Policy output on device
 
@@ -58,7 +65,7 @@ Inference produces logits or Q-values for 3 actions; take `argmax`. Map to key b
 
 ## Fixed-point inference
 
-Weights are exported as **int8** with per-layer scale; activations use **int32** accumulators and **ReLU** after hidden layers. See [policy.c](../policy.c). `GAME_OBS_DIM` in [observation.h](../observation.h) must equal `POLICY_OBS_DIM` from generated [policy_weights.h](../policy_weights.h) (both are 51 with the current layout).
+Weights are exported as **int8** with per-layer scale; activations use **int32** accumulators and **ReLU** after hidden layers. See [policy.c](../policy.c). `GAME_OBS_DIM` in [observation.h](../observation.h) must equal `POLICY_OBS_DIM` from generated [policy_weights.h](../policy_weights.h) (both are **26** with the current layout).
 
 ## Firmware entry points
 

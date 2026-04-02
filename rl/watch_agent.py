@@ -10,7 +10,7 @@ import sys
 import pygame
 from stable_baselines3 import PPO
 
-from catch_env import CatchGameEnv
+from catch_env import EASY_TRAIN_PRESET, CatchGameEnv
 
 
 def main() -> int:
@@ -37,6 +37,20 @@ def main() -> int:
         action="store_true",
         help="Sample from policy instead of greedy (argmax)",
     )
+    ap.add_argument(
+        "--easy",
+        action="store_true",
+        help="Use same EASY_TRAIN_PRESET as rl/train.py --easy (must match how the model was trained)",
+    )
+    ap.add_argument("--initial-lives", type=int, default=10)
+    ap.add_argument("--spawn-every", type=int, default=25)
+    ap.add_argument("--basket-width", type=int, default=36)
+    ap.add_argument("--basket-speed", type=int, default=3)
+    ap.add_argument("--fruit-dy-min", type=int, default=1)
+    ap.add_argument("--fruit-dy-max", type=int, default=1)
+    ap.add_argument("--fruit-move-every", type=int, default=2)
+    ap.add_argument("--fruit-r-min", type=int, default=4)
+    ap.add_argument("--fruit-r-max", type=int, default=6)
     args = ap.parse_args()
 
     model_path = args.model
@@ -47,7 +61,22 @@ def main() -> int:
         print("Train first: python rl/train.py", file=sys.stderr)
         return 1
 
-    env = CatchGameEnv(render_mode="human", render_scale=args.scale)
+    if args.easy:
+        env = CatchGameEnv(render_mode="human", render_scale=args.scale, **EASY_TRAIN_PRESET)
+    else:
+        env = CatchGameEnv(
+            render_mode="human",
+            render_scale=args.scale,
+            initial_lives=args.initial_lives,
+            spawn_every=args.spawn_every,
+            basket_width=args.basket_width,
+            basket_speed=args.basket_speed,
+            fruit_dy_min=args.fruit_dy_min,
+            fruit_dy_max=args.fruit_dy_max,
+            fruit_move_every=args.fruit_move_every,
+            fruit_r_min=args.fruit_r_min,
+            fruit_r_max=args.fruit_r_max,
+        )
     model = PPO.load(model_path)
 
     clock = pygame.time.Clock()
