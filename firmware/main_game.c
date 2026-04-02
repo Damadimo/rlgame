@@ -1,8 +1,9 @@
 /*
- * Unified Catch game: menu + three modes + post-game choice.
+ * Unified Catch game: menu + four launch modes + post-game choice.
  *
  * Keys (DE1-SoC push buttons, active high when pressed):
- *   Menu:     KEY0 = AI full screen, KEY1 = split human vs AI, KEY2 = human full screen
+ *   Menu:     KEY0 = AI (default weights), KEY1 = split human vs AI,
+ *             KEY2 = human full screen, KEY3 = AI (alternate weights)
  *   Postgame: KEY0 = back to menu,   KEY1 = play same mode again
  * Movement in-game: bits 0x8 (left) and 0x4 (right) — same as original mains.
  */
@@ -14,6 +15,7 @@
 #include "observation.h"
 #include "observation_duel.h"
 #include "policy.h"
+#include "policy_alt.h"
 #include "policy_duel.h"
 #include "rng.h"
 
@@ -28,6 +30,7 @@ enum play_kind {
     PLAY_AI_SOLO = 0,
     PLAY_SPLIT = 1,
     PLAY_HUMAN_SOLO = 2,
+    PLAY_AI_SOLO_ALT = 3,
 };
 
 static int action_to_keys(int a)
@@ -50,11 +53,12 @@ static void flip_buffer(volatile int *pixel_ctrl_ptr)
 static void draw_mode_menu(void)
 {
     clear_screen();
-    draw_rect(40, 8, 240, 22, BLUE);
-    draw_rect(20, 40, 280, 44, CYAN);
-    draw_rect(20, 92, 280, 44, GREEN);
-    draw_rect(20, 144, 280, 44, YELLOW);
-    draw_rect(10, 200, 300, 28, GRAY);
+    draw_rect(40, 6, 240, 18, BLUE);
+    draw_rect(20, 28, 280, 34, CYAN);
+    draw_rect(20, 66, 280, 34, GREEN);
+    draw_rect(20, 104, 280, 34, YELLOW);
+    draw_rect(20, 142, 280, 34, MAGENTA);
+    draw_rect(10, 184, 300, 28, GRAY);
 }
 
 static int run_menu(volatile int *pixel_ctrl_ptr)
@@ -73,6 +77,9 @@ static int run_menu(volatile int *pixel_ctrl_ptr)
             }
             if (k & 4) {
                 return PLAY_HUMAN_SOLO;
+            }
+            if (k & 8) {
+                return PLAY_AI_SOLO_ALT;
             }
         }
         prev = k;
@@ -146,6 +153,23 @@ static void play_ai_solo(volatile int *pixel_ctrl_ptr, GameState *out)
     }
 }
 
+static void play_ai_solo_alt(volatile int *pixel_ctrl_ptr, GameState *out)
+{
+    float obs[GAME_OBS_DIM];
+    input_set_mode(INPUT_MODE_AGENT);
+    init_game(out);
+
+    while (out->running) {
+        clear_screen();
+        build_game_observation(out, obs);
+        int a = policy_alt_select_action_from_game_obs(obs);
+        input_set_agent_keys(action_to_keys(a));
+        update_game(out);
+        draw_game(out);
+        flip_buffer(pixel_ctrl_ptr);
+    }
+}
+
 static void play_human_solo(volatile int *pixel_ctrl_ptr, GameState *out)
 {
     input_set_mode(INPUT_MODE_HUMAN);
@@ -195,6 +219,9 @@ int main(void)
 
         if (mode == PLAY_AI_SOLO) {
             play_ai_solo(pixel_ctrl_ptr, &g);
+            again = run_postgame(pixel_ctrl_ptr, mode, &g, 0);
+        } else if (mode == PLAY_AI_SOLO_ALT) {
+            play_ai_solo_alt(pixel_ctrl_ptr, &g);
             again = run_postgame(pixel_ctrl_ptr, mode, &g, 0);
         } else if (mode == PLAY_SPLIT) {
             play_split(pixel_ctrl_ptr, &d);
