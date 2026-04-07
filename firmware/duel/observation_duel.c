@@ -1,15 +1,19 @@
+// Float obs for duel policy, right pane only, layout matches solo packing.
+
 #include "observation_duel.h"
 
 #include <stdlib.h>
 
 #include "duel_game.h"
 
+// Sort scratch, src_i keeps qsort stable when y and x tie.
 typedef struct {
     int y;
     int x;
     int src_i;
 } ActiveFruit;
 
+// Identical sort key idea as build_game_observation in solo code.
 static int cmp_active_fruit(const void *aa, const void *bb)
 {
     const ActiveFruit *a = (const ActiveFruit *)aa;
@@ -20,6 +24,7 @@ static int cmp_active_fruit(const void *aa, const void *bb)
     if (a->x != b->x) {
         return a->x - b->x;
     }
+    // Deterministic tie break if y and x match.
     return a->src_i - b->src_i;
 }
 
@@ -27,6 +32,7 @@ void build_duel_right_observation(const DuelState *d, float obs[DUEL_GAME_OBS_DI
 {
     const DuelPane *p = &d->right;
     int max_x = DUEL_PANE_W - DUEL_BASKET_W;
+    // Basket x normalized over its lane inside the right pane.
     obs[0] = max_x > 0 ? (float)p->basket.x / (float)max_x : 0.f;
 
     ActiveFruit act[DUEL_MAX_FRUITS];
@@ -41,9 +47,11 @@ void build_duel_right_observation(const DuelState *d, float obs[DUEL_GAME_OBS_DI
         }
     }
     if (n > 1) {
+        // Deepest fruit first so slot zero is what the policy should track.
         qsort(act, (size_t)n, sizeof act[0], cmp_active_fruit);
     }
 
+    // Five floats per fruit slot, same layout as the full screen trainer.
     for (int slot = 0; slot < DUEL_MAX_FRUITS; slot++) {
         int o = 1 + slot * 5;
         if (slot < n) {
@@ -61,6 +69,7 @@ void build_duel_right_observation(const DuelState *d, float obs[DUEL_GAME_OBS_DI
             obs[o + 3] = (float)f->dy / 3.f;
             obs[o + 4] = (float)f->r / 8.f;
         } else {
+            // Padding for unused fruit slots in the fixed width vector.
             obs[o + 0] = 0.f;
             obs[o + 1] = 0.f;
             obs[o + 2] = 0.f;

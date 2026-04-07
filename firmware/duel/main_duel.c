@@ -1,3 +1,5 @@
+// Duel only entry point without the unified menu binary.
+
 #include "graphics.h"
 #include "duel_game.h"
 #include "input.h"
@@ -5,6 +7,7 @@
 #include "policy_duel.h"
 #include "rng.h"
 
+// Obs vector length must match the duel weight header or link will be wrong.
 #if DUEL_GAME_OBS_DIM != DUEL_POLICY_OBS_DIM
 #error "DUEL_GAME_OBS_DIM must match DUEL_POLICY_OBS_DIM (see rl/duel/DUEL.md)"
 #endif
@@ -24,12 +27,13 @@ int main(void)
 {
     volatile int *pixel_ctrl_ptr = (int *)PIXEL_BUF_CTRL_BASE;
     DuelState duel;
-    float obs[DUEL_GAME_OBS_DIM]; /* == DUEL_POLICY_OBS_DIM */
+    float obs[DUEL_GAME_OBS_DIM];
 
     init_vga_buffers();
     game_rng_seed(12345u);
     init_duel(&duel);
 
+    // Policy steers right pane keys, human keys read inside update_duel.
     while (duel.running) {
         clear_screen();
         build_duel_right_observation(&duel, obs);
@@ -42,7 +46,8 @@ int main(void)
         pixel_buffer_start = *(pixel_ctrl_ptr + 1);
     }
 
-    while (1) {
+    // Simple winner tint bars like the unified postgame sketch.
+    for (;;) {
         clear_screen();
         draw_rect(40, 80, 240, 50, RED);
         if (duel.left.lives <= 0 && duel.right.lives > 0) {
@@ -55,6 +60,4 @@ int main(void)
         wait_for_vsync();
         pixel_buffer_start = *(pixel_ctrl_ptr + 1);
     }
-
-    return 0;
 }

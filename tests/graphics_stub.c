@@ -1,14 +1,19 @@
-/* Host-only stubs for linking game.c without DE1 hardware. */
+// Host build has no VGA hardware so these are empty shells for linking game.c.
+// Parity tests only care about game logic, not pixels.
+
 #include "graphics.h"
 
+// Same symbols as firmware/shared/graphics.c so the linker resolves draw calls.
 volatile int pixel_buffer_start;
 short int Buffer1[240][512];
 short int Buffer2[240][512];
 
+// No controller to wait on when running under gcc on a laptop.
 void wait_for_vsync(void) {}
 
 void init_vga_buffers(void)
 {
+    // Any non zero base is enough because plot_pixel never runs in these tests.
     pixel_buffer_start = (int)(long)Buffer1;
 }
 

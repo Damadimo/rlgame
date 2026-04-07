@@ -1,51 +1,53 @@
+// DE1 VGA draw helpers, double buffered 320 by 240 active region.
+
 #include "graphics.h"
 
+// Front buffer base the CPU draws through, toggled after each swap.
 volatile int pixel_buffer_start;
+// Row stride is 512 shorts even though only 320 columns are visible.
 short int Buffer1[240][512];
 short int Buffer2[240][512];
 
-
+// Block until the video controller finishes the pending buffer swap.
 void wait_for_vsync(void)
 {
     volatile int *pixel_ctrl_ptr = (int *)PIXEL_BUF_CTRL_BASE;
     int status;
 
+    // Start swap then spin until the status S bit drops.
     *pixel_ctrl_ptr = 1;
-
-    // read the status reg at 0xFF20302C
     status = *(pixel_ctrl_ptr + 3);
-
-    // poll S bit of status reg
     while ((status & 0x01) != 0) {
         status = *(pixel_ctrl_ptr + 3);
     }
 }
 
+// Arm both buffers and clear each after its first front buffer assignment.
 void init_vga_buffers(void)
 {
     volatile int *pixel_ctrl_ptr = (int *)PIXEL_BUF_CTRL_BASE;
 
-    // sets Buffer1 as back buffer and then swaps to become front buffer
-    *(pixel_ctrl_ptr + 1) = (int)&Buffer1; // stores address of Buffer1 into back buffer
-    wait_for_vsync();                       // swap buffers
-    pixel_buffer_start = *pixel_ctrl_ptr;   // read front buffer reg to give Buffer1's address
+    // First half, back buffer points at Buffer1, swap clears it as front.
+    *(pixel_ctrl_ptr + 1) = (int)&Buffer1;
+    wait_for_vsync();
+    pixel_buffer_start = *pixel_ctrl_ptr;
     clear_screen();
 
-    // set Buffer2 as back buffer
-    *(pixel_ctrl_ptr + 1) = (int)&Buffer2; // stores address of Buffer2 into back buffer
-    pixel_buffer_start = *(pixel_ctrl_ptr + 1); // read back buffer to give Buffer2's address
+    // Second half, draw into Buffer2 while Buffer1 is shown.
+    *(pixel_ctrl_ptr + 1) = (int)&Buffer2;
+    pixel_buffer_start = *(pixel_ctrl_ptr + 1);
     clear_screen();
 }
 
+// Write one pixel in the back buffer, clip if outside the screen.
 void plot_pixel(int x, int y, short int color)
 {
-
-    // checking bounds (ignore all not within 320x240)
+    // Drop draws outside the 320 by 240 window.
     if (x < 0 || x >= SCREEN_WIDTH || y < 0 || y >= SCREEN_HEIGHT) {
         return;
     }
 
-    // each pixel is 2 bytes and each row is 1024 bytes (from lab 7)
+    // y times 1024 bytes per row plus x times two bytes per pixel.
     volatile short int *one_pixel_address;
     one_pixel_address = (volatile short int *)(pixel_buffer_start + (y << 10) + (x << 1));
     *one_pixel_address = color;
@@ -53,7 +55,7 @@ void plot_pixel(int x, int y, short int color)
 
 void clear_screen(void)
 {
-    // use BLACK (0x0000) to clear screen each time 
+    // Entire visible window to black.
     for (int y = 0; y < SCREEN_HEIGHT; y++) {
         for (int x = 0; x < SCREEN_WIDTH; x++) {
             plot_pixel(x, y, BLACK);
@@ -61,9 +63,9 @@ void clear_screen(void)
     }
 }
 
+// Filled axis aligned rectangle, inclusive row and column ranges.
 void draw_rect(int x, int y, int w, int h, short int color)
 {
-    // iterates from top to bottom row & left to right column to plot pixel
     for (int row = y; row < y + h; row++) {
         for (int col = x; col < x + w; col++) {
             plot_pixel(col, row, color);
@@ -73,11 +75,11 @@ void draw_rect(int x, int y, int w, int h, short int color)
 
 void draw_circle(int cx, int cy, int r, short int color)
 {
-    // draws a bounding box iterating from -r to r to make a circle
+    // Test every pixel in the bounding square, keep points inside radius.
     for (int dy = -r; dy <= r; dy++) {
         for (int dx = -r; dx <= r; dx++) {
-            if (dx * dx + dy * dy <= r * r) { // if this holds, then pixel is within a circle
-                plot_pixel(cx + dx, cy + dy, color); // adds the center coordinates than dx, dy which are offsets
+            if (dx * dx + dy * dy <= r * r) {
+                plot_pixel(cx + dx, cy + dy, color);
             }
         }
     }

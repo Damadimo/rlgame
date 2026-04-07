@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Built by `make` at repo root (host parity / policy smoke tests)
+tests/parity_steps
+tests/policy_smoke
+tests/policy_duel_smoke
+tests/policy_alt_smoke

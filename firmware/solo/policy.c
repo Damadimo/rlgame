@@ -1,3 +1,5 @@
+// Quantized MLP forward for default solo policy, weights from policy_weights.h.
+
 #include "policy.h"
 
 #include <math.h>
@@ -7,6 +9,7 @@
 #error "POLICY_OBS_DIM must be defined by policy_weights.h"
 #endif
 
+// Hidden layers use this, logits stay linear.
 static float relu(float x)
 {
     return x > 0.f ? x : 0.f;
@@ -14,7 +17,9 @@ static float relu(float x)
 
 void policy_forward_logits(const float obs[POLICY_OBS_DIM], float logits[POLICY_N_ACTION])
 {
+    // Fixed point style activations to keep matmul cheap on the FPGA side.
     int32_t xq[POLICY_OBS_DIM];
+    // Quantize observations to int for int8 weight multiply.
     for (int i = 0; i < POLICY_OBS_DIM; i++) {
         float v = obs[i] * (float)POLICY_IN_Q;
         if (v > 32767.f) {
@@ -27,6 +32,7 @@ void policy_forward_logits(const float obs[POLICY_OBS_DIM], float logits[POLICY_
     }
 
     float hidden1[POLICY_H1];
+    // First hidden layer, POLICY_W1 and POLICY_B1 from the header.
     for (int j = 0; j < POLICY_H1; j++) {
         int64_t acc = 0;
         for (int k = 0; k < POLICY_OBS_DIM; k++) {
@@ -37,6 +43,7 @@ void policy_forward_logits(const float obs[POLICY_OBS_DIM], float logits[POLICY_
     }
 
     int32_t y1q[POLICY_H1];
+    // Requantize after relu for the second hidden matmul.
     for (int j = 0; j < POLICY_H1; j++) {
         float v = hidden1[j] * (float)POLICY_IN_Q;
         if (v > 32767.f) {
@@ -49,6 +56,7 @@ void policy_forward_logits(const float obs[POLICY_OBS_DIM], float logits[POLICY_
     }
 
     float hidden2[POLICY_H2];
+    // Second hidden layer, POLICY_W2 and POLICY_B2.
     for (int j = 0; j < POLICY_H2; j++) {
         int64_t acc = 0;
         for (int k = 0; k < POLICY_H1; k++) {
@@ -59,6 +67,7 @@ void policy_forward_logits(const float obs[POLICY_OBS_DIM], float logits[POLICY_
     }
 
     int32_t y2q[POLICY_H2];
+    // Same quantize step as after hidden1.
     for (int j = 0; j < POLICY_H2; j++) {
         float v = hidden2[j] * (float)POLICY_IN_Q;
         if (v > 32767.f) {
@@ -70,6 +79,7 @@ void policy_forward_logits(const float obs[POLICY_OBS_DIM], float logits[POLICY_
         y2q[j] = (int32_t)(v + (v >= 0.f ? 0.5f : -0.5f));
     }
 
+    // Output logits, POLICY_WA and POLICY_BA, linear head.
     for (int j = 0; j < POLICY_N_ACTION; j++) {
         int64_t acc = 0;
         for (int k = 0; k < POLICY_H2; k++) {
@@ -79,11 +89,13 @@ void policy_forward_logits(const float obs[POLICY_OBS_DIM], float logits[POLICY_
     }
 }
 
+// Highest logit wins, discrete stay left right for this project.
 int policy_select_action(const float obs[POLICY_OBS_DIM])
 {
     float logits[POLICY_N_ACTION];
     policy_forward_logits(obs, logits);
     int best = 0;
+    // Argmax matches deterministic eval during training export.
     for (int i = 1; i < POLICY_N_ACTION; i++) {
         if (logits[i] > logits[best]) {
             best = i;
