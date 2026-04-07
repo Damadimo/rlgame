@@ -13,8 +13,12 @@ train.py - trains the polcity with reinforcement learning
 import torch
 import torch.optim as optim
 import numpy as np
-from sim import SimulateGame 
+from pathlib import Path
+
+from sim import SimulateGame
 from model import Policy
+
+_SCRIPT_DIR = Path(__file__).resolve().parent
 
 def train(num_episodes=20000, lr=1e-3, gamma=0.99, print_every=500):
     """
@@ -91,8 +95,9 @@ def train(num_episodes=20000, lr=1e-3, gamma=0.99, print_every=500):
             print(f"Episode {episode+1:>6d}  |  avg reward: {avg:>7.2f}  |  "f"last score: {env.score}  |  last lives left: {env.lives}")
 
 
-    torch.save(policy.state_dict(), "policy.pt")
-    print(f"\nTraining complete. Model saved to policy.pt")
+    policy_path = _SCRIPT_DIR / "policy.pt"
+    torch.save(policy.state_dict(), str(policy_path))
+    print(f"\nTraining complete. Model saved to {policy_path}")
     print(f"Final avg reward (last 500): {np.mean(reward_history[-500:]):.2f}")
 
     return policy

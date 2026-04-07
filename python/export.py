@@ -5,14 +5,27 @@ exporting 59 parameters to weights.h (offline training, online inference)
 
 
 import torch
+from pathlib import Path
+
 from model import Policy
 
+_SCRIPT_DIR = Path(__file__).resolve().parent
+_REPO_ROOT = _SCRIPT_DIR.parent
 
-def export_weights(model_path="policy.pt", output_path="weights.h"):
+
+def export_weights(model_path=None, output_path=None):
+    if model_path is None:
+        model_path = _SCRIPT_DIR / "policy.pt"
+    else:
+        model_path = Path(model_path)
+    if output_path is None:
+        output_path = _REPO_ROOT / "c" / "weights.h"
+    else:
+        output_path = Path(output_path)
     
     # load trained model
     policy = Policy()
-    policy.load_state_dict(torch.load(model_path, weights_only=True))
+    policy.load_state_dict(torch.load(str(model_path), weights_only=True))
     policy.eval()
 
     """
@@ -28,7 +41,7 @@ def export_weights(model_path="policy.pt", output_path="weights.h"):
     b2 = policy.fc2.bias.detach().numpy()
 
     # creating weights.h file
-    with open(output_path, "w") as f:
+    with open(output_path, "w", encoding="utf-8") as f:
         f.write("#ifndef WEIGHTS_H\n")
         f.write("#define WEIGHTS_H\n\n")
 

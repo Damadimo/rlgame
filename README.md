@@ -3,19 +3,21 @@ training a RL model to play a simple game of catch deployed on a risc-32 fpga
 trained offline in python, inference ran on C
 
 file structure:
-    python (offline training):
+    python/ (offline training):
         sim.py         - game logic cloned from C
         model.py       - defines MLP
         train.py       - rl training loop
-        export.py      - converts policy.pt -> weights.h
+        export.py      - converts policy.pt -> c/weights.h
+        requirements.txt
+        policy.pt      - saved weights after training (regenerate with train.py)
 
-    C (inference on board):
+    c/ (inference on board):
         main.c         - game loop (AI drives basket when AI_MODE=1)
         game.c/h       - game logic
         graphics.c/h   - VGA double buffered rendering
         input.c/h      - read pushbutton
         ai.c/h         - forward pass (matrix multiplication)
-        weights.h      - 59 trained floats
+        weights.h      - 59 trained floats (regenerate from python/export.py)
 
 currently:
     - model learned from 3 inputs (fruit_x, fruit_x, basket_x) 
@@ -35,10 +37,11 @@ with 51 inputs and 64 neurons in hidden layer then:
 
 how to run:
     python part:
+        cd python
         pip install -r requirements.txt
         python sim.py
         python train.py
         python export.py
-    
+
     C part (inference on board):
-        compile on hardware 
+        compile sources in c/ on hardware
